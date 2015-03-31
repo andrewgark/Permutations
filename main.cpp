@@ -3,11 +3,12 @@
 
 int main()
 {
-    ui32 queriesNumber = 50000;
-    GlobalTestResult globalTestResult(queriesNumber);
-    if (globalTestResult.succeeds)
-        std::cout << "Testing succeeds\n" << std::endl;
+    ui32 queriesNumber = 500, arraySize = 100;
+    GlobalTestResult globalTestResult;
+    globalTestResult.execute(arraySize, queriesNumber);
+    if (globalTestResult.isSucceeds())
+        std::cout << "Testing succeeds\n";
     else
-        std::cout << "Testing failed\n" << std::endl;
+        std::cout << "Testing failed\n";
     return 0;
 }

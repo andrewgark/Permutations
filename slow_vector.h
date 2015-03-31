@@ -1,5 +1,6 @@
 #include <vector>
 #include <algorithm>
+#include <cassert>
 
 typedef unsigned int ui32;
 
@@ -23,29 +24,26 @@ public:
 
     long long subsegmentSum(ui32 left, ui32 right)
     {
+        assert(left < right && right <= intVector.size());
         long long result = 0;
-        for (ui32 i = left; i < right; ++i)
-            result += (long long) intVector[i];
-        //std::cout << result;
-        return result;
+        return std::accumulate(intVector.begin() + left, intVector.begin() + right, result);
     }
 
     void insert(int value, ui32 index)
     {
+        assert(index <= intVector.size());
         intVector.insert(intVector.begin() + index, value);
-        /*intVector.push_back(0);
-        for (ui32 i = intVector.size(); i > index; --i)
-            intVector[i] = intVector[i - 1];
-        intVector[index] = value;*/
     }
 
     void assign(int value, ui32 index)
     {
+        assert(index < intVector.size());
         intVector[index] = value;
     }
 
     bool nextPermutation(ui32 left, ui32 right)
     {
+        assert(left < right && right <= intVector.size());
         return std::next_permutation(intVector.begin() + left, intVector.begin() + right);
     }
 };

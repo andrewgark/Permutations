@@ -1,5 +1,6 @@
 #include "slow_vector.h"
 #include <random>
+#include <cassert>
 
 std::default_random_engine generator;
 
@@ -9,114 +10,36 @@ int getRandomInt(int a, int b)
     return distribution(generator);
 }
 
+int getRandomInt()
+{
+    return getRandomInt(INT_MIN, INT_MAX);
+}
+
 class Treap: public IPermutableArray
 {
-    struct Node
+    class Node
     {
-        int key, priority, mostRightKey, mostLeftKey;
-        long long sum;
-        ui32 size, sizeMaxDecreasingSuffix, sizeMaxIncreasingPrefix;
-        bool reversed;
-        Node *left, *right;
-
-        explicit Node(int newKey)
-            :key(newKey), priority(getRandomInt(INT_MIN, INT_MAX)), reversed(false), left(nullptr), right(nullptr), sum(key), size(1), sizeMaxDecreasingSuffix(1), mostRightKey(newKey), mostLeftKey(newKey)
-        {}
-
-        ~Node()
+        void updateSizeMax(ui32 &sizeMax, ui32 firstSizeMax, ui32 secondSizeMax, int mostFirstKey, int mostSecondKey, Node *first, Node *second)
         {
-            delete left;
-            delete right;
+            sizeMax = 1;
+            if (first)
+            {
+                sizeMax = firstSizeMax;
+                if (first->size != sizeMax)
+                    return;
+                if (mostFirstKey <= key)
+                    sizeMax++;
+                else
+                    return;
+            }
+            if (second && mostSecondKey >= key)
+                sizeMax += secondSizeMax;
         }
-
-        void updateMostLeftAndRightKeys()
-        {
-           mostLeftKey = left ? left->getMostLeftKey() : key;
-           mostRightKey = right ? right->getMostRightKey() : key;
-        }
-
-        void makeReversed()
-        {
-            reversed = reversed ? false : true;
-        }
-
-        int getMostLeftKey()
-        {
-            return reversed ? mostRightKey : mostLeftKey;
-        }
-
-        int getMostRightKey()
-        {
-            return reversed ? mostLeftKey : mostRightKey;
-        }
-
-        ui32 getSizeMaxDecreasingSuffix()
-        {
-            return reversed ? sizeMaxIncreasingPrefix : sizeMaxDecreasingSuffix;
-        }
-
-        ui32 getSizeMaxIncreasingPrefix()
-        {
-            return reversed ? sizeMaxDecreasingSuffix : sizeMaxIncreasingPrefix;
-        }
-
 
         void updateSizeMaxSuffixAndPrefix()
         {
-            if (!left && !right)
-            {
-                sizeMaxDecreasingSuffix = 1;
-                sizeMaxIncreasingPrefix = 1;
-            }
-            else if (!left)
-            {
-                sizeMaxIncreasingPrefix = 1;
-                sizeMaxDecreasingSuffix = right->getSizeMaxDecreasingSuffix();
-                if (right->getMostLeftKey() >= key)
-                    sizeMaxIncreasingPrefix += right->getSizeMaxIncreasingPrefix();
-                if (right->getSizeMaxDecreasingSuffix() == right->size && right->getMostLeftKey() <= key)
-                    sizeMaxDecreasingSuffix += 1;
-            }
-            else if (!right)
-            {
-                sizeMaxIncreasingPrefix = left->getSizeMaxIncreasingPrefix();
-                sizeMaxDecreasingSuffix = 1;
-                if (left->getMostRightKey() >= key)
-                    sizeMaxDecreasingSuffix += left->getSizeMaxDecreasingSuffix();
-                if (left->getSizeMaxIncreasingPrefix() == left->size && left->getMostRightKey() <= key)
-                    sizeMaxIncreasingPrefix += 1;
-            }
-            else
-            {
-
-                if (right->getSizeMaxDecreasingSuffix() < right->size)
-                    sizeMaxDecreasingSuffix = right->getSizeMaxDecreasingSuffix();
-                else
-                {
-                    if (key >= right->getMostLeftKey())
-                    {
-                        sizeMaxDecreasingSuffix = right->size + 1;
-                        if (key <= left->getMostRightKey())
-                            sizeMaxDecreasingSuffix += left->getSizeMaxDecreasingSuffix();
-                    }
-                    else
-                        sizeMaxDecreasingSuffix = right->getSizeMaxDecreasingSuffix();
-                }
-
-                if (left->getSizeMaxIncreasingPrefix() < left->size)
-                    sizeMaxIncreasingPrefix = left->getSizeMaxIncreasingPrefix();
-                else
-                {
-                    if (key >= left->getMostRightKey())
-                    {
-                        sizeMaxIncreasingPrefix = left->size + 1;
-                        if (key <= right->getMostLeftKey())
-                            sizeMaxIncreasingPrefix += right->getSizeMaxIncreasingPrefix();
-                    }
-                        else
-                            sizeMaxIncreasingPrefix = left->getSizeMaxIncreasingPrefix();
-                }
-            }
+            updateSizeMax(sizeMaxDecreasingSuffix, (right ? right->getSizeMaxDecreasingSuffix() : 0), (left ? left->getSizeMaxDecreasingSuffix() : 0), (right ? right->getMostLeftKey() : 0), (left ? left->getMostRightKey() : 0), right, left);
+            updateSizeMax(sizeMaxIncreasingPrefix, (left ? left->getSizeMaxIncreasingPrefix() : 0), (right ? right->getSizeMaxIncreasingPrefix() : 0), (left ? left->getMostRightKey() : 0), (right ? right->getMostLeftKey() : 0), left, right);
         }
 
         void relax()
@@ -140,15 +63,66 @@ class Treap: public IPermutableArray
             ui32 rightSize = right ? right->size : 0;
             size = leftSize + rightSize + 1;
         }
+
         void updateSum()
         {
             long long leftSum = left ? left->sum : 0;
             long long rightSum = right ? right->sum : 0;
             sum = leftSum + rightSum + (long long)key;
         }
+
+        void updateMostLeftAndRightKeys()
+        {
+           mostLeftKey = left ? left->getMostLeftKey() : key;
+           mostRightKey = right ? right->getMostRightKey() : key;
+        }
+
+    public:
+        int key, priority, mostRightKey, mostLeftKey;
+        long long sum;
+        ui32 size, sizeMaxDecreasingSuffix, sizeMaxIncreasingPrefix;
+        bool reversed;
+        Node *left, *right;
+
+        int getMostLeftKey() const
+        {
+            return reversed ? mostRightKey : mostLeftKey;
+        }
+
+        int getMostRightKey() const
+        {
+            return reversed ? mostLeftKey : mostRightKey;
+        }
+
+        ui32 getSizeMaxDecreasingSuffix() const
+        {
+            return reversed ? sizeMaxIncreasingPrefix : sizeMaxDecreasingSuffix;
+        }
+
+        ui32 getSizeMaxIncreasingPrefix() const
+        {
+            return reversed ? sizeMaxDecreasingSuffix : sizeMaxIncreasingPrefix;
+        }
+
+        explicit Node(int newKey)
+            :key(newKey), priority(getRandomInt()), reversed(false), left(nullptr),
+             right(nullptr), sum(key), size(1), sizeMaxDecreasingSuffix(1),
+            sizeMaxIncreasingPrefix(1), mostRightKey(newKey), mostLeftKey(newKey)
+        {}
+
+        ~Node()
+        {
+            delete left;
+            delete right;
+        }
+
+        void makeReversed()
+        {
+            reversed = reversed ? false : true;
+        }
+
         void update()
         {
-            //std::cout << leftSum << " + " << rightSum << " + " << key << " = " << sum << "\n";
             relax();
             updateMostLeftAndRightKeys();
             updateSize();
@@ -165,11 +139,11 @@ class Treap: public IPermutableArray
             : begin(first), end(second)
         {}
 
+        TwoNodes()
+        {}
+
         ~TwoNodes()
-        {
-            //delete begin;
-            //delete end;
-        }
+        {}
     };
 
 
@@ -181,12 +155,11 @@ class Treap: public IPermutableArray
             : begin(first), middle(second), end(third)
         {}
 
+        ThreeNodes()
+        {}
+
         ~ThreeNodes()
-        {
-            //delete begin;
-            //delete middle;
-            //delete end;
-        }
+        {}
     };
 
     Node* root;
@@ -197,8 +170,6 @@ class Treap: public IPermutableArray
             return secondNode;
         if (!secondNode)
             return firstNode;
-        firstNode->relax();
-        secondNode->relax();
         firstNode->update();
         secondNode->update();
         Node* newRoot;
@@ -221,55 +192,55 @@ class Treap: public IPermutableArray
         if (!node)
             return TwoNodes(nullptr, nullptr);
         node->update();
-        node->relax();
         ui32 leftSize = node->left ? node->left->size : 0;
+        TwoNodes result;
         if (leftSize > index)
         {
             TwoNodes splittedLeft = split(node->left, index);
             node->left = splittedLeft.end;
-            node->update();
-            return TwoNodes(splittedLeft.begin, node);
+            result = TwoNodes(splittedLeft.begin, node);
         }
         else if (leftSize < index)
         {
             TwoNodes splittedRight = split(node->right, index - leftSize - 1);
             node->right = splittedRight.begin;
-            node->update();
-            return TwoNodes(node, splittedRight.end);
+            result = TwoNodes(node, splittedRight.end);
         }
         else
         {
             Node* leftNode = node->left;
             node->left = nullptr;
-            node->update();
-            return TwoNodes(leftNode, node);
+            result = TwoNodes(leftNode, node);
         }
+        node->update();
+        return result;
     }
 
     TwoNodes splitIncreasingByKey(Node* node, int key)// элементы с key включаются в левое дерево
     {
         if (!node)
             return TwoNodes(nullptr, nullptr);
-        node->relax();
         node->update();
+        TwoNodes result;
         if (node->key > key)
         {
             TwoNodes splittedLeft = splitIncreasingByKey(node->left, key);
             node->left = splittedLeft.end;
-            node->update();
-            return TwoNodes(splittedLeft.begin, node);
+            result = TwoNodes(splittedLeft.begin, node);
         }
         else
         {
             TwoNodes splittedRight = splitIncreasingByKey(node->right, key);
             node->right = splittedRight.begin;
-            node->update();
-            return TwoNodes(node, splittedRight.end);
+            result = TwoNodes(node, splittedRight.end);
         }
+        node->update();
+        return result;
     }
 
     ThreeNodes split(Node* node, ui32 left, ui32 right)
     {
+        assert(left < right);
         TwoNodes firstSplittedNodes = split(node, right);
         TwoNodes secondSplittedNodes = split(firstSplittedNodes.begin, left);
         return ThreeNodes(secondSplittedNodes.begin, secondSplittedNodes.end, firstSplittedNodes.end);
@@ -288,7 +259,7 @@ class Treap: public IPermutableArray
     bool nextPermutation(Node* node)
     {
         if (!node)
-            return 1;
+            return 0;
         if (node->sizeMaxDecreasingSuffix == node->size)
         {
             node->makeReversed();
@@ -312,8 +283,14 @@ public:
     {
     }
 
+    ~Treap()
+    {
+        delete root;
+    }
+
     long long subsegmentSum(ui32 left, ui32 right)
     {
+        assert(left < right && (!root || right <= root->size));
         ThreeNodes splittedNodes = split(root, left, right);
         long long result = splittedNodes.middle->sum;
         root = merge(splittedNodes);
@@ -322,6 +299,7 @@ public:
 
     void insert(int value, ui32 index)
     {
+        assert(!root || index <= root->size);
         Node* newNode = new Node(value);
         newNode->update();
         if (!root || (index == root->size))
@@ -335,6 +313,7 @@ public:
 
     void assign(int value, ui32 index)
     {
+        assert(!root || index < root->size);
         ThreeNodes splittedNodes = split(root, index, index + 1);
         splittedNodes.middle->key = value;
         splittedNodes.middle->update();
@@ -343,6 +322,7 @@ public:
 
     bool nextPermutation(ui32 left, ui32 right)
     {
+        assert(left < right && (!root || right <= root->size));
         ThreeNodes splittedNodes = split(root, left, right);
         bool result = nextPermutation(splittedNodes.middle);
         root = merge(splittedNodes);

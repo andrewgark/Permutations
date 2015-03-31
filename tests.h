@@ -2,13 +2,18 @@
 #include <iostream>
 #include <sstream>
 
+enum ETestType
+{
+    ETT_RANDOM,
+    ETT_NEXT_PERMUTATION
+};
 
 enum EQueryType
 {
-    SUBSEGMENT_SUM,
-    INSERT,
-    ASSIGN,
-    NEXT_PERMUTATION
+    EQT_SUBSEGMENT_SUM,
+    EQT_INSERT,
+    EQT_ASSIGN,
+    EQT_NEXT_PERMUTATION
 };
 
 template<typename TypeValue>
@@ -24,145 +29,175 @@ struct Query
     EQueryType type;
     ui32 index, left, right;
     int value;
-    void generateRandomSubsegment(ui32 arraySize)
-    {
-        left = getRandomInt(0, arraySize - 1);
-        right = getRandomInt(left + 1, arraySize);
-        //std::cout << arraySize << " " << left << " " << right<< std::endl;
-    }
-    void generateRandomValueAndIndex(ui32 arraySize)
-    {
-        value = getRandomInt(INT_MIN, INT_MAX);
-        index = getRandomInt(0, arraySize - 1);
-    }
 };
+
+void generateRandomSubsegment(Query &query, ui32 arraySize)
+{
+    query.left = getRandomInt(0, arraySize - 1);
+    query.right = getRandomInt(0, arraySize - 1);
+    if (query.left > query.right)
+        std::swap(query.left, query.right);
+    query.right++;
+}
+
+void generateRandomValueAndIndex(Query &query, ui32 arraySize)
+{
+    query.value = getRandomInt();
+    query.index = getRandomInt(0, arraySize - 1);
+}
 
 std::string convertQueryToString(Query query)
 {
     switch (query.type)
     {
-        case SUBSEGMENT_SUM:
+        case EQT_SUBSEGMENT_SUM:
             return "SUBSEGMENT_SUM " + convertToString(query.left) + " " + convertToString(query.right);
-        case INSERT:
+        case EQT_INSERT:
             return "INSERT " + convertToString(query.value) + " " + convertToString(query.index);
-        case ASSIGN:
+        case EQT_ASSIGN:
             return "ASSIGN " + convertToString(query.value) + " " + convertToString(query.index);
-        case NEXT_PERMUTATION:
+        case EQT_NEXT_PERMUTATION:
             return "NEXT_PERMUTATION " + convertToString(query.left) + " " + convertToString(query.right);
     }
 }
 
-std::vector<Query> generateRandomQueries(ui32 queriesNumber)
+template<ETestType TestType>
+std::vector<Query> generateQueries(ui32 arraySize, ui32 queriesNumber);
+
+template<>
+std::vector<Query> generateQueries<ETT_NEXT_PERMUTATION>(ui32 arraySize, ui32 queriesNumber)
+{
+    std::vector<Query> queries;
+    for (ui32 i = 0; i < arraySize; ++i)
+    {
+        Query currentQuery;
+        currentQuery.type = EQT_INSERT;
+        currentQuery.index = 0;
+        currentQuery.value = getRandomInt();
+        queries.push_back(currentQuery);
+    }
+    for (ui32 i = 0; i < queriesNumber; ++i)
+    {
+        Query currentQuery;
+        currentQuery.type = EQT_NEXT_PERMUTATION;
+        currentQuery.left = 0;
+        currentQuery.right = arraySize;
+        queries.push_back(currentQuery);
+    }
+    for (ui32 i = 0; i < arraySize; ++i)
+    {
+        Query currentQuery;
+        currentQuery.type = EQT_SUBSEGMENT_SUM;
+        currentQuery.left = i;
+        currentQuery.right = i + 1;
+        queries.push_back(currentQuery);
+    }
+    return queries;
+}
+
+template<>
+std::vector<Query> generateQueries<ETT_RANDOM>(ui32 arraySize, ui32 queriesNumber)
 {
     std::vector<Query> queries;
     Query firstQuery;
-    firstQuery.type = INSERT;
+    firstQuery.type = EQT_INSERT;
     firstQuery.index = 0;
-    firstQuery.value = getRandomInt(INT_MIN, INT_MAX);
+    firstQuery.value = getRandomInt();
     queries.push_back(firstQuery);
-    ui32 arraySize = 1;
+    ui32 currentArraySize = 1;
     for (ui32 i = 1; i < queriesNumber; ++i)
     {
         Query currentQuery;
         currentQuery.type = (EQueryType)getRandomInt(0, 3);
         switch (currentQuery.type)
         {
-            case SUBSEGMENT_SUM:
+            case EQT_SUBSEGMENT_SUM:
             {
-                currentQuery.generateRandomSubsegment(arraySize);
+                generateRandomSubsegment(currentQuery, currentArraySize);
                 break;
             }
-            case INSERT:
+            case EQT_INSERT:
             {
-                currentQuery.generateRandomValueAndIndex(arraySize + 1);
+                generateRandomValueAndIndex(currentQuery, currentArraySize + 1);
                 arraySize++;
                 break;
             }
-            case ASSIGN:
+            case EQT_ASSIGN:
             {
-                currentQuery.generateRandomValueAndIndex(arraySize);
+                generateRandomValueAndIndex(currentQuery, currentArraySize);
                 break;
             }
-            case NEXT_PERMUTATION:
+            case EQT_NEXT_PERMUTATION:
             {
-                currentQuery.generateRandomSubsegment(arraySize);
+                generateRandomSubsegment(currentQuery, currentArraySize);
                 break;
             }
         }
         queries.push_back(currentQuery);
     }
-    //for (ui32 i = 0; i < queriesNumber; ++i)
-    //    std::cout << convertQueryToString(queries[i]) << "\n";
     return queries;
 }
 
-template<typename PermutableArrayType>
-long long resultQuery(PermutableArrayType& permutableArray, Query query)
+long long resultQuery(IPermutableArray& permutableArray, Query query)
 {
     switch (query.type)
     {
-        case SUBSEGMENT_SUM:
+        case EQT_SUBSEGMENT_SUM:
         {
             return permutableArray.subsegmentSum(query.left, query.right);
         }
-        case INSERT:
+        case EQT_INSERT:
         {
             permutableArray.insert(query.value, query.index);
             return 1;
         }
-        case ASSIGN:
+        case EQT_ASSIGN:
         {
             permutableArray.assign(query.value, query.index);
             return 1;
         }
-        case NEXT_PERMUTATION:
+        case EQT_NEXT_PERMUTATION:
         {
-            permutableArray.nextPermutation(query.left, query.right);
-            return 1;
+            return permutableArray.nextPermutation(query.left, query.right);
         }
     }
 }
 
+std::vector<long long> resultsQueries(IPermutableArray &permutableArray, std::vector<Query> &queries)
+{
+    std::vector<long long> result;
+    for (ui32 i = 0; i < queries.size(); ++i)
+        result.push_back(resultQuery(permutableArray, queries[i]));
+    return result;
+}
+
 class GlobalTestResult
 {
-public:
     bool succeeds = true;
-    double treapTime = 0, slowVectorTime = 0;
-    GlobalTestResult(ui32 queriesNumber)
+
+public:
+    GlobalTestResult(){};
+
+    bool isSucceeds()
     {
-        std::vector<Query> queries = generateRandomQueries(queriesNumber);
+        return succeeds;
+    }
+
+    void execute(ui32 arraySize, ui32 queriesNumber)
+    {
+        test<ETT_RANDOM>(arraySize, queriesNumber);
+        test<ETT_NEXT_PERMUTATION>(arraySize, queriesNumber);
+    }
+
+    template<ETestType testType>
+    void test(ui32 arraySize, ui32 queriesNumber)
+    {
+        std::vector<Query> queries = generateQueries<testType>(arraySize, queriesNumber);
         Treap treap;
         SlowVector slowVector;
-        ui32 arraySize = 0;
-        for (ui32 i = 0; i < queriesNumber; ++i)
-        {
-            //std::cout << convertQueryToString(queries[i]) << "\n";
-            if (queries[i].type == INSERT)
-                ++arraySize;
-            long long treapResult = resultQuery<Treap>(treap, queries[i]);
-            //std::cout << "Treap ok" << "\n";
-            long long slowVectorResult = resultQuery<SlowVector>(slowVector, queries[i]);
-            //std::cout << "SlowV ok" << "\n";
-
-                /*
-            for (ui32 j = 0; j < arraySize; ++j)
-                std::cout << slowVector.subsegmentSum(j, j + 1);
-            std::cout << "\n";*/
-            if (treapResult != slowVectorResult)
-            {
-                succeeds = false;
-                /*for (ui32 j = 0; j < arraySize; ++j)
-                    std::cout <<  treap.subsegmentSum(j, j + 1);
-                std::cout << "\n";
-                for (ui32 j = 0; j < arraySize; ++j)
-                    std::cout <<  slowVector.subsegmentSum(j, j + 1);
-                std::cout << "\n";
-                std::cout << "\n";*/
-                //std::cout << "Treap says: " << treapResult << "\n";
-                //std::cout << "SlowV says: " << slowVectorResult << "\n";
-            }
-            //else
-                //std::cout << "Reslt ok: " << treapResult << "\n";
-        }
+        std::vector<long long> treapResults = resultsQueries(treap, queries);
+        std::vector<long long> slowVectorResults = resultsQueries(slowVector, queries);
+        succeeds = (treapResults == slowVectorResults);
     }
 };
+
